@@ -8,7 +8,6 @@ variables:
   dockerRegistryServiceConnection: 'efab7040-2411-4d95-b28b-c397fb8c0fca'
   imageRepository: 'saitejaazuredevopsgithubacraksapp'
   containerRegistry: 'aksdevop.azurecr.io'
-  dockerfilePath: '**/Dockerfile'
   tag: '$(Build.BuildId)'
   imagePullSecret: 'aksdevop2118f8c8-auth'
 
@@ -26,23 +25,31 @@ stages:
     steps:
     - checkout: self
 
-    # 🔥 Login to ACR
+    # 🔐 Login to ACR
     - task: Docker@2
       displayName: Login to ACR
       inputs:
         command: login
         containerRegistry: $(dockerRegistryServiceConnection)
 
-    # 🔥 Build ARM64 image + Push
+    # 🔥 Build ARM64 image from correct folder
     - script: |
+        cd Git-Repository-files
+
         docker build --platform linux/arm64 \
           -t $(containerRegistry)/$(imageRepository):$(tag) .
-        
+
         docker push $(containerRegistry)/$(imageRepository):$(tag)
       displayName: Build and push ARM64 image
 
-    # Upload manifests
-    - upload: manifests
+    # 📦 Upload manifests from correct path
+    - task: CopyFiles@2
+      inputs:
+        SourceFolder: 'Git-Repository-files/kube-manifests'
+        Contents: '**'
+        TargetFolder: '$(Build.ArtifactStagingDirectory)'
+
+    - publish: $(Build.ArtifactStagingDirectory)
       artifact: manifests
 
 
@@ -63,7 +70,7 @@ stages:
         deploy:
           steps:
 
-          # Create image pull secret
+          # 🔐 Create image pull secret
           - task: KubernetesManifest@0
             displayName: Create imagePullSecret
             inputs:
@@ -71,7 +78,7 @@ stages:
               secretName: $(imagePullSecret)
               dockerRegistryEndpoint: $(dockerRegistryServiceConnection)
 
-          # Deploy to AKS
+          # 🚀 Deploy to AKS
           - task: KubernetesManifest@0
             displayName: Deploy to Kubernetes cluster
             inputs:
