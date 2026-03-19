@@ -1,7 +1,3 @@
-# Deploy to Azure Kubernetes Service
-# Build and push image to Azure Container Registry; Deploy to Azure Kubernetes Service
-# https://docs.microsoft.com/azure/devops/pipelines/languages/docker
-
 trigger:
 - main
 
@@ -9,8 +5,6 @@ resources:
 - repo: self
 
 variables:
-
-  # Container registry service connection established during pipeline creation
   dockerRegistryServiceConnection: 'efab7040-2411-4d95-b28b-c397fb8c0fca'
   imageRepository: 'saitejaazuredevopsgithubacraksapp'
   containerRegistry: 'aksdevop.azurecr.io'
@@ -18,11 +12,9 @@ variables:
   tag: '$(Build.BuildId)'
   imagePullSecret: 'aksdevop2118f8c8-auth'
 
-  # Agent VM image name
-  #vmImageName: 'ubuntu-latest'
-
-
 stages:
+
+# ================= BUILD STAGE =================
 - stage: Build
   displayName: Build stage
   jobs:
@@ -30,20 +22,31 @@ stages:
     displayName: Build
     pool:
       name: default
-    steps:
-    - task: Docker@2
-      displayName: Build and push an image to container registry
-      inputs:
-        command: buildAndPush
-        repository: $(imageRepository)
-        dockerfile: $(dockerfilePath)
-        containerRegistry: $(dockerRegistryServiceConnection)
-        tags: |
-          $(tag)
 
+    steps:
+    - checkout: self
+
+    # 🔥 Login to ACR
+    - task: Docker@2
+      displayName: Login to ACR
+      inputs:
+        command: login
+        containerRegistry: $(dockerRegistryServiceConnection)
+
+    # 🔥 Build ARM64 image + Push
+    - script: |
+        docker build --platform linux/arm64 \
+          -t $(containerRegistry)/$(imageRepository):$(tag) .
+        
+        docker push $(containerRegistry)/$(imageRepository):$(tag)
+      displayName: Build and push ARM64 image
+
+    # Upload manifests
     - upload: manifests
       artifact: manifests
 
+
+# ================= DEPLOY STAGE =================
 - stage: Deploy
   displayName: Deploy stage
   dependsOn: Build
@@ -54,10 +57,13 @@ stages:
     pool:
       name: default
     environment: 'saiteja855azuredevopsgithubacraksapp1.default'
+
     strategy:
       runOnce:
         deploy:
           steps:
+
+          # Create image pull secret
           - task: KubernetesManifest@0
             displayName: Create imagePullSecret
             inputs:
@@ -65,6 +71,7 @@ stages:
               secretName: $(imagePullSecret)
               dockerRegistryEndpoint: $(dockerRegistryServiceConnection)
 
+          # Deploy to AKS
           - task: KubernetesManifest@0
             displayName: Deploy to Kubernetes cluster
             inputs:
@@ -76,4 +83,3 @@ stages:
                 $(imagePullSecret)
               containers: |
                 $(containerRegistry)/$(imageRepository):$(tag)
-
