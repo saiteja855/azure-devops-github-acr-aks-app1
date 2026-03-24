@@ -1,7 +1,6 @@
 trigger:
 - master
 
-# Variables
 variables:
   tag: '$(Build.BuildId)'
 
@@ -17,10 +16,11 @@ stages:
 
     steps:
 
-    # Task-1: Build & Push Docker Image
+    # ✅ Build & Push Docker Image
     - task: Docker@2
+      displayName: Build and Push Docker Image
       inputs:
-        containerRegistry: 'manual-aksdevop-svc'   # make sure this name is correct
+        containerRegistry: 'manual-aksdevop-svc'
         repository: 'custom2aksnginxapp1'
         command: 'buildAndPush'
         Dockerfile: '**/Dockerfile'
@@ -28,53 +28,43 @@ stages:
           $(tag)
           $(Build.SourceVersion)
 
-    # Debug - List files
+    # 🔍 Debug - List repo files
     - bash: |
-        echo "Listing Source Directory"
+        echo "===== SOURCE DIRECTORY ====="
         ls -R $(System.DefaultWorkingDirectory)
 
+    # 🔍 Before copy
     - bash: |
-        echo "Before Copy - Artifact Directory"
+        echo "===== BEFORE COPY ====="
         ls -R $(Build.ArtifactStagingDirectory)
 
-    # Task-2: Copy kube-manifests
+    # ✅ FIXED: Correct source path
     - task: CopyFiles@2
+      displayName: Copy Kubernetes Manifests
       inputs:
-        SourceFolder: '$(System.DefaultWorkingDirectory)/manifests'
-        Contents: '**'
+        SourceFolder: '$(System.DefaultWorkingDirectory)/Git-Repository-files/kube-manifests'
+        Contents: '**/*.yml'
         TargetFolder: '$(Build.ArtifactStagingDirectory)'
         OverWrite: true
 
-    # Debug after copy
+    # 🔍 After copy
     - bash: |
-        echo "After Copy - Artifact Directory"
+        echo "===== AFTER COPY ====="
         ls -R $(Build.ArtifactStagingDirectory)
 
-    # Task-3: Publish Artifacts
+    # ✅ Publish artifacts (clean structure)
     - task: PublishBuildArtifacts@1
+      displayName: Publish Kubernetes Manifests
       inputs:
         PathtoPublish: '$(Build.ArtifactStagingDirectory)'
         ArtifactName: 'kube-manifests'
         publishLocation: 'Container'
 
-    # 🔥 BIG JAI GIREEESH BANNER
+    # 🔥 Banner
     - bash: |
         echo ""
-        echo "     ██╗   █████╗   ██╗"
-        echo "     ██║  ██╔══██╗  ██║"
-        echo "     ██║  ███████║  ██║"
-        echo "██   ██║  ██╔══██║  ██║"
-        echo "╚█████╔╝  ██║  ██║  ██║"
-        echo " ╚════╝   ╚═╝  ╚═╝  ╚═╝"
+        echo "🚩🚩🚩 BUILD SUCCESS 🚩🚩🚩"
+        echo "🚀 JAI GIREEESH 🚀"
         echo ""
-        echo " ██████╗  ██╗  ██████╗  ███████╗  ███████╗  ███████╗  ███████╗  ██╗  ██╗"
-        echo "██╔════╝  ██║  ██╔══██╗ ██╔════╝  ██╔════╝  ██╔════╝  ██╔════╝  ██║  ██║"
-        echo "██║  ███╗ ██║  ██████╔╝ █████╗    █████╗    █████╗    ███████╗  ███████║"
-        echo "██║   ██║ ██║  ██╔══██╗ ██╔══╝    ██╔══╝    ██╔══╝    ╚════██║  ██╔══██║"
-        echo "╚██████╔╝ ██║  ██║  ██║ ███████╗  ███████╗  ███████╗  ███████║  ██║  ██║"
-        echo " ╚═════╝  ╚═╝  ╚═╝  ╚═╝ ╚══════╝  ╚══════╝  ╚══════╝  ╚══════╝  ╚═╝  ╚═╝"
-        echo ""
-        echo "================== 🚩 JAI GIREEESH 🚩 =================="
-        echo ""
-      displayName: '🔥 BIG JAI GIREEESH BANNER'
+      displayName: 'Success Banner'
       condition: succeeded()
